@@ -19,7 +19,7 @@ public:
         while (getline(stringStream, line))
         {
             size_t prev = 0, pos;
-            while ((pos = line.find_first_of(" (),", prev)) != string ::npos)
+            while ((pos = line.find_first_of(" (),#", prev)) != string ::npos)
             {
                 if (pos > prev)
                     wordVector.push_back(line.substr(prev, pos - prev));
@@ -29,10 +29,10 @@ public:
                 wordVector.push_back(line.substr(prev, string ::npos));
         }
 
-        for (int i = 0; i < wordVector.size(); i++)
-        {
-            cout << wordVector[i] << " ";
-        }
+        // for (int i = 0; i < wordVector.size(); i++)
+        // {
+        //     cout << wordVector[i] << " ";
+        // }
         return wordVector;
     }
 
@@ -72,6 +72,8 @@ public:
     void create(vector<string> s);
     void insert(vector<string> s);
     void desc(vector<string> s);
+    vector<vector<string>> splitFile(fstream &, string, bool);
+
     void read_schema()
     {
         ip_file.open("Schema.txt", ios ::in);
@@ -270,13 +272,88 @@ void SQL::insert(vector<string> command)
     else
     {
         ofstream op_table;
-        fstream f1("Column.txt");
+        fstream f1("ConstrLength.txt");
+        fstream f2("Column.txt");
+        fstream f3("Constraint.txt");
+        fstream f4("Datatype.txt");
+        vector<vector<string>> Length, Constraint, Datatype;
         op_table.open(command[2] + ".txt", ios::app | ios::out);
-        int index = getIndex(tables, command[2]);
-        GotoLine(f1, index + 1);
-        string line;
-        f1 >> line;
-        cout << line;
+        unordered_map<string, vector<vector<string>>> attribute_constrints;
+        // int index = getIndex(tables, command[2]);
+        // GotoLine(f1, index + 1);
+        // GotoLine(f2, index + 1);
+        // string line;
+        // vector<string> l, l1;
+        // f1 >> line;
+        // l = split(line);
+        // for (int i = 1; i < l.size(); i++)
+        // {
+        //     // l[i].erase(remove(l[i].begin(), l[i].end(), '-'), l[i].end());
+        //     // if(isNumber(l[i])){
+        //     stringstream stringStream(l[i]);
+        //     string line;
+        //     vector<string> wordVector;
+        //     while (getline(stringStream, line))
+        //     {
+        //         size_t prev = 0, pos;
+        //         while ((pos = line.find_first_of("-", prev)) != string ::npos)
+        //         {
+        //             if (pos > prev)
+        //                 wordVector.push_back(line.substr(prev, pos - prev));
+        //             prev = pos + 1;
+        //         }
+        //         if (prev < line.length())
+        //             wordVector.push_back(line.substr(prev, string ::npos));
+        //     }
+        //     Length.push_back(wordVector);
+        // }
+
+        // f2 >> line;
+        // l = split(line);
+        // for (int i = 1; i < l.size(); i++)
+        // {
+        //     l1.push_back(l[i]);
+        //     cout << l[i];
+        // }
+        Length = splitFile(f1, command[2], true);
+        Constraint = splitFile(f3, command[2], true);
+        Datatype = splitFile(f4, command[2], false);
+
+        for (int i = 0; i < Length.size(); i++)
+        {
+            cout << "Length - ";
+            for(int j=0; j<Length[i].size(); j++)
+            {
+                cout << Length[i][j]  << " ";
+            }
+            cout << endl;
+
+            cout << "Datatype - ";
+            for(int j=0; j<Datatype[i].size(); j++)
+            {
+                cout << Datatype[i][j] << " ";
+            }
+            cout << endl;
+
+            cout << "Constraint - ";
+            for(int j=0; j<Constraint[i].size(); j++)
+            {
+                cout << Constraint[i][j] << " ";
+            }
+            cout << endl;
+        }
+
+        // for (int i = 0; i < l1.size(); i++)
+        // {
+        //     attribute_constrints[l1[i]].push_back(Length[i]);
+        //     cout << l1[i] << " = ";
+        //     for (auto value : attribute_constrints[l1[i]])
+        //         for (auto c : value)
+        //             cout << c << " ";
+        //     cout << endl;
+        // }
+
+        // cout << line;
         for (int i = 4; i < command.size(); i++)
         {
             command[i].erase(
@@ -284,23 +361,59 @@ void SQL::insert(vector<string> command)
                 command[i].end());
             if (command[i] == ";")
                 break;
-            // else if (command[i] == "(")
-            //     i++;
-            // if (i == 5)
-            // {
 
             op_table << command[i] << "#";
-            // }
-            // else
-            // {
-            //     op_table << "#" << command[i];
-            // }
         }
         cout << "\nData inserted successfully\n";
         op_table << "\n";
         op_table.close();
     }
 }
+
+vector<vector<string>> SQL::splitFile(fstream &f1, string s, bool b) // if b=true, that means its for files constraint.txt and constraintLength.txt, else it is for datatype.txt
+{
+
+    vector<vector<string>> Length;
+    int index = getIndex(tables, s);
+    GotoLine(f1, index + 1);
+    string fline;
+    vector<string> l, l1;
+    f1 >> fline;
+    l = split(fline);
+    if (b)
+    {
+        for (int i = 1; i < l.size(); i++)
+        {
+            // l[i].erase(remove(l[i].begin(), l[i].end(), '-'), l[i].end());
+            // if(isNumber(l[i])){
+            stringstream stringStream(l[i]);
+            string line;
+            vector<string> wordVector;
+            while (getline(stringStream, line))
+            {
+                size_t prev = 0, pos;
+                while ((pos = line.find_first_of("-", prev)) != string ::npos)
+                {
+                    if (pos > prev)
+                        wordVector.push_back(line.substr(prev, pos - prev));
+                    prev = pos + 1;
+                }
+                if (prev < line.length())
+                    wordVector.push_back(line.substr(prev, string ::npos));
+            }
+            Length.push_back(wordVector);
+        }
+    }
+    else
+    {
+        for(int i=1; i<l.size(); i++)
+        {
+            Length.push_back({l[i]});
+        }
+    }
+    return Length;
+}
+
 void SQL::desc(vector<string> command)
 {
     string table = command[1];

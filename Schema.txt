@@ -1,2 +1,3 @@
 phase#phaseno#int#cardname#varchar
 stud#grno#int#name#varchar
+ensert#enid#int#enname#varchar

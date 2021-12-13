@@ -1,2 +1,3 @@
 phase#primary_key-,NA-,
 stud#primary_key-,NA-,
+ensert#primary_key-,not_null-unique-,
