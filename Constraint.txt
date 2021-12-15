@@ -1,3 +1,2 @@
-phase#primary_key-,NA-,
+demo#primary_key-,not_null-,
 stud#primary_key-,NA-,
-ensert#primary_key-,not_null-unique-,

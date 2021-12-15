@@ -11,6 +11,17 @@ public:
     ifstream ip_file;
     ofstream op_file, datatype, col_names, constraint, constrLength;
 
+    SQL(string query)
+    {
+        read_schema();
+        command = split(query);
+        // for (int i = 0; i < command.size(); i++)
+        // {
+        //     cout << command[i] << endl;
+        // }
+        execute(command);
+    }
+
     vector<string> split(string s)
     {
         stringstream stringStream(s);
@@ -19,7 +30,7 @@ public:
         while (getline(stringStream, line))
         {
             size_t prev = 0, pos;
-            while ((pos = line.find_first_of(" (),#", prev)) != string ::npos)
+            while ((pos = line.find_first_of(" .(),#", prev)) != string ::npos)
             {
                 if (pos > prev)
                     wordVector.push_back(line.substr(prev, pos - prev));
@@ -73,6 +84,7 @@ public:
     void insert(vector<string> s);
     void desc(vector<string> s);
     vector<vector<string>> splitFile(fstream &, string, bool);
+    bool operation(vector<int> values, string command);
 
     void read_schema()
     {
@@ -92,31 +104,7 @@ public:
             tables.push_back(temp);
         }
     }
-    SQL(string query)
-    {
-        read_schema();
-        command = split(query);
-        // for (int i = 0; i < command.size(); i++)
-        // {
-        //     cout << command[i] << endl;
-        // }
-        execute(command);
-    }
 
-    // void read()
-    // {
-    //     ip_file.open("Schema.txt", ios::in);
-    //     char c;
-    //     int i = 0;
-    //     clear();
-
-    //     do
-    //     {
-    //         ip_file.get(c);
-    //         buffer[i] = c;
-    //         i++;
-    //     } while (c != '\n');
-    // }
     string lower(string upTxt)
     {
         std::transform(upTxt.begin(), upTxt.end(), upTxt.begin(), ::tolower);
@@ -132,6 +120,7 @@ public:
         return true;
     }
 };
+
 void SQL ::execute(vector<string> command)
 {
     if (lower(command[0]) == "create")
@@ -201,6 +190,9 @@ void SQL::create(vector<string> command)
                 {
                     att_length[att_name[att_name.size() - 1]] = {stoi(command[i])};
                 }
+
+                // id --> 4 2
+                // name --> 25
                 else
                     att_length[att_name[att_name.size() - 1]].push_back(stoi(command[i]));
             }
@@ -225,11 +217,6 @@ void SQL::create(vector<string> command)
                 typ.push_back(command[i]);
             }
         }
-
-        // else
-        // {
-        //     constraints.push_back(command[i]);
-        // }
     }
     cout << "Table created successfully" << endl;
 
@@ -279,81 +266,76 @@ void SQL::insert(vector<string> command)
         vector<vector<string>> Length, Constraint, Datatype;
         op_table.open(command[2] + ".txt", ios::app | ios::out);
         unordered_map<string, vector<vector<string>>> attribute_constrints;
-        // int index = getIndex(tables, command[2]);
-        // GotoLine(f1, index + 1);
-        // GotoLine(f2, index + 1);
-        // string line;
-        // vector<string> l, l1;
-        // f1 >> line;
-        // l = split(line);
-        // for (int i = 1; i < l.size(); i++)
-        // {
-        //     // l[i].erase(remove(l[i].begin(), l[i].end(), '-'), l[i].end());
-        //     // if(isNumber(l[i])){
-        //     stringstream stringStream(l[i]);
-        //     string line;
-        //     vector<string> wordVector;
-        //     while (getline(stringStream, line))
-        //     {
-        //         size_t prev = 0, pos;
-        //         while ((pos = line.find_first_of("-", prev)) != string ::npos)
-        //         {
-        //             if (pos > prev)
-        //                 wordVector.push_back(line.substr(prev, pos - prev));
-        //             prev = pos + 1;
-        //         }
-        //         if (prev < line.length())
-        //             wordVector.push_back(line.substr(prev, string ::npos));
-        //     }
-        //     Length.push_back(wordVector);
-        // }
+        map<int, vector<int>> attr_table;
 
-        // f2 >> line;
-        // l = split(line);
-        // for (int i = 1; i < l.size(); i++)
-        // {
-        //     l1.push_back(l[i]);
-        //     cout << l[i];
-        // }
         Length = splitFile(f1, command[2], true);
         Constraint = splitFile(f3, command[2], true);
         Datatype = splitFile(f4, command[2], false);
 
-        for (int i = 0; i < Length.size(); i++)
+        // add values in map attr_table
+        for (int i = 1; i <= Length.size(); i++)
+        {
+            vector<int> boolValues(11, 0);
+            // Int Float Varchar Number(Length) Precisoin PK FK NotNUll Unique check default
+            if (lower(Datatype[i - 1][0]) == "int")
+                boolValues[0] = 1;
+            else if (lower(Datatype[i - 1][0]) == "float")
+                boolValues[1] = 1;
+            else if (lower(Datatype[i - 1][0]) == "varchar")
+                boolValues[2] = 1;
+
+            boolValues[3] = stoi(Length[i - 1][0]);
+            if (Length[i - 1].size() == 2)
+                boolValues[4] = stoi(Length[i - 1][1]);
+
+            if (lower(Constraint[i - 1][0]) == "primary_key")
+                boolValues[5] = 1;
+            if (lower(Constraint[i - 1][0]) == "foreign_key")
+                boolValues[6] = 1;
+            if (lower(Constraint[i - 1][0]) == "not_null")
+                boolValues[7] = 1;
+            if (lower(Constraint[i - 1][0]) == "unique")
+                boolValues[8] = 1;
+            if (lower(Constraint[i - 1][0]) == "check")
+                boolValues[9] = 1;
+            if (lower(Constraint[i - 1][0]) == "default")
+                boolValues[10] = 1;
+
+            attr_table[i] = boolValues;
+        }
+
+        for (auto x : attr_table)
+        {
+            cout << x.first << " ";
+            for (auto i : x.second)
+                cout << i << " ";
+            cout << endl;
+        }
+
+        /*for (int i = 0; i < Length.size(); i++)
         {
             cout << "Length - ";
-            for(int j=0; j<Length[i].size(); j++)
+            for (int j = 0; j < Length[i].size(); j++)
             {
-                cout << Length[i][j]  << " ";
+                cout << Length[i][j] << " ";
             }
             cout << endl;
 
             cout << "Datatype - ";
-            for(int j=0; j<Datatype[i].size(); j++)
+            for (int j = 0; j < Datatype[i].size(); j++)
             {
                 cout << Datatype[i][j] << " ";
             }
             cout << endl;
 
             cout << "Constraint - ";
-            for(int j=0; j<Constraint[i].size(); j++)
+            for (int j = 0; j < Constraint[i].size(); j++)
             {
                 cout << Constraint[i][j] << " ";
             }
             cout << endl;
-        }
+        }*/
 
-        // for (int i = 0; i < l1.size(); i++)
-        // {
-        //     attribute_constrints[l1[i]].push_back(Length[i]);
-        //     cout << l1[i] << " = ";
-        //     for (auto value : attribute_constrints[l1[i]])
-        //         for (auto c : value)
-        //             cout << c << " ";
-        //     cout << endl;
-        // }
-
-        // cout << line;
         for (int i = 4; i < command.size(); i++)
         {
             command[i].erase(
@@ -362,12 +344,68 @@ void SQL::insert(vector<string> command)
             if (command[i] == ";")
                 break;
 
+            vector<int> values = attr_table[i - 3];
+            operation(values, command[i]);
             op_table << command[i] << "#";
         }
         cout << "\nData inserted successfully\n";
         op_table << "\n";
         op_table.close();
     }
+}
+
+bool SQL::operation(vector<int> values, string command)
+{
+    if(values[0] == 1)
+        //isInteger(command);
+    else if (values[1] == 1)
+        //isFloat(command);
+    else if (values[2] == 1)
+        //isVarchar(command);
+    
+    if (values[3])
+    {
+        int t = command.size();
+        if(values[1] == 1)
+            t--;
+
+        if (t > values[3])
+        {
+            cout << "Error : Length Constraint Violated due to " << command << endl;
+            return false;
+        }
+    }
+
+    if(values[4])
+    {
+        vector<string> temp = split(command);
+        if (temp[1].size() > values[4])
+        {
+            cout << "Error : Precision Constraint Violated due to " << command << endl;
+            return false;
+        }
+    }
+
+    if(values[5] == 1)
+        //checkDuplicates(command);
+    
+    if(values[6] == 1)
+        //checkForignkey
+    
+    if(values[7] == 1)
+        //checkNull(command)
+
+    if(values[8] == 1)
+        //checkDuplicates(command);
+    
+    if(values[9] == 1)
+        //checkcheck(command)
+    
+    if(values[10] == 1)
+        //checkdefault
+    
+
+
 }
 
 vector<vector<string>> SQL::splitFile(fstream &f1, string s, bool b) // if b=true, that means its for files constraint.txt and constraintLength.txt, else it is for datatype.txt
@@ -384,8 +422,6 @@ vector<vector<string>> SQL::splitFile(fstream &f1, string s, bool b) // if b=tru
     {
         for (int i = 1; i < l.size(); i++)
         {
-            // l[i].erase(remove(l[i].begin(), l[i].end(), '-'), l[i].end());
-            // if(isNumber(l[i])){
             stringstream stringStream(l[i]);
             string line;
             vector<string> wordVector;
@@ -406,7 +442,7 @@ vector<vector<string>> SQL::splitFile(fstream &f1, string s, bool b) // if b=tru
     }
     else
     {
-        for(int i=1; i<l.size(); i++)
+        for (int i = 1; i < l.size(); i++)
         {
             Length.push_back({l[i]});
         }
@@ -548,13 +584,12 @@ void SQL::desc(vector<string> command)
 }
 int main()
 {
-    string s;
+    string s = "create table stud(grno int primary_key, name varchar(20));";
     //"insert into stud values (11817, 'john');";
     //"create table stud(grno int primary_key, name varchar(20));";
     //"create table phase(phaseno int(3,2) primary_key, cardname varchar(20));"
-    int c = 1;
-    cout << "Enter the SQL command :- ";
-    getline(cin, s);
+    // cout << "Enter the SQL command :- ";
+    // getline(cin, s);
     SQL sql(s);
     return 0;
 }

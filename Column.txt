@@ -1,3 +1,2 @@
-phase#phaseno,cardname,
+demo#id,name,
 stud#grno,name,
-ensert#enid,enname,

@@ -1,3 +1,2 @@
-phase#int,varchar,
+demo#int,varchar,
 stud#int,varchar,
-ensert#int,varchar,

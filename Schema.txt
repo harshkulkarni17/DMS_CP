@@ -1,3 +1,2 @@
-phase#phaseno#int#cardname#varchar
+demo#id#int#name#varchar
 stud#grno#int#name#varchar
-ensert#enid#int#enname#varchar
