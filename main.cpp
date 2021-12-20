@@ -30,7 +30,7 @@ public:
         while (getline(stringStream, line))
         {
             size_t prev = 0, pos;
-            while ((pos = line.find_first_of(" .(),#", prev)) != string ::npos)
+            while ((pos = line.find_first_of(" (),#", prev)) != string ::npos)
             {
                 if (pos > prev)
                     wordVector.push_back(line.substr(prev, pos - prev));
@@ -84,8 +84,10 @@ public:
     void insert(vector<string> s);
     void desc(vector<string> s);
     vector<vector<string>> splitFile(fstream &, string, bool);
-    bool operation(vector<int> values, string command);
-
+    void operation(vector<int> values, string command, string table_name, int attr_no);
+    bool isInteger(string command);
+    bool isFloat(string command);
+    bool checkDuplicates(string command, string table);
     void read_schema()
     {
         ip_file.open("Schema.txt", ios ::in);
@@ -263,6 +265,7 @@ void SQL::insert(vector<string> command)
         fstream f2("Column.txt");
         fstream f3("Constraint.txt");
         fstream f4("Datatype.txt");
+        string table_name = command[2];
         vector<vector<string>> Length, Constraint, Datatype;
         op_table.open(command[2] + ".txt", ios::app | ios::out);
         unordered_map<string, vector<vector<string>>> attribute_constrints;
@@ -345,7 +348,7 @@ void SQL::insert(vector<string> command)
                 break;
 
             vector<int> values = attr_table[i - 3];
-            operation(values, command[i]);
+            operation(values, command[i], table_name, i - 3);
             op_table << command[i] << "#";
         }
         cout << "\nData inserted successfully\n";
@@ -353,59 +356,142 @@ void SQL::insert(vector<string> command)
         op_table.close();
     }
 }
-
-bool SQL::operation(vector<int> values, string command)
+bool SQL ::isInteger(string command)
 {
-    if(values[0] == 1)
-        //isInteger(command);
+    return isNumber(command);
+}
+bool SQL ::isFloat(string command)
+{
+    string s;
+    int flag = 0;
+    for (auto i : command)
+    {
+        if (i != '.')
+        {
+            s.push_back(i);
+            flag = 1;
+        }
+    }
+    if (isNumber(command) && flag)
+    {
+        return true;
+    }
+    return false;
+}
+bool SQL ::checkDuplicates(string command, string table_name)
+{
+    ifstream table;
+    table.open(table_name + ".txt", ios::in);
+    string attr;
+    vector<string> values;
+    // vector<string> tables;
+    while (getline(table, attr))
+    {
+        int i = 0;
+        string temp;
+        while (attr[i] != '#')
+        {
+            temp.push_back(attr[i]);
+            i++;
+        }
+        values.push_back(temp);
+    }
+    values.push_back(command);
+    set<string> value_set;
+    for (auto i : values)
+    {
+        value_set.insert(i);
+    }
+    if (value_set.size() != values.size())
+        return true; // if duplicate found
+    return false;    // if duplicate not found
+}
+
+void SQL::operation(vector<int> values, string command, string table_name, int attr_no)
+{
+
+    if (values[0] == 1)
+    {
+        if (!isInteger(command))
+        {
+            cout << "Error " << command << " is not of type integer" << endl;
+        }
+    }
     else if (values[1] == 1)
-        //isFloat(command);
-    else if (values[2] == 1)
-        //isVarchar(command);
-    
+    {
+        if (!isFloat(command))
+        {
+            cout << "Error " << command << " is not of type float" << endl;
+        }
+    }
+    // else if (values[2] == 1)
+    // {
+    // // isVarchar(command);
+    // }
+
     if (values[3])
     {
         int t = command.size();
-        if(values[1] == 1)
+        if (values[1] == 1)
             t--;
 
         if (t > values[3])
         {
             cout << "Error : Length Constraint Violated due to " << command << endl;
-            return false;
+            // return false;
         }
     }
 
-    if(values[4])
+    if (values[4])
     {
         vector<string> temp = split(command);
         if (temp[1].size() > values[4])
         {
             cout << "Error : Precision Constraint Violated due to " << command << endl;
-            return false;
+            // return false;
         }
     }
 
-    if(values[5] == 1)
-        //checkDuplicates(command);
-    
-    if(values[6] == 1)
-        //checkForignkey
-    
-    if(values[7] == 1)
-        //checkNull(command)
+    if (values[5] == 1)
+    {
+        if (lower(command) == "na" || lower(command) == "null")
+        {
+            cout << "Error : Null value detected - This attribute can't be null\n";
+        }
+        else if(checkDuplicates(command, table_name))
+        {
+            cout << "Error : Your entered key is already exists in the table " << endl;
+        }
+    }
 
-    if(values[8] == 1)
-        //checkDuplicates(command);
-    
-    if(values[9] == 1)
-        //checkcheck(command)
-    
-    if(values[10] == 1)
-        //checkdefault
-    
+    if (values[6] == 1)
+    {
+    }
+    // checkForignkey
 
+    if (values[7] == 1)
+    {
+        if (lower(command) == "na" || lower(command) == "null")
+        {
+            cout << "Error : Null value detected - This attribute can't be null\n";
+        }
+    }
+    // checkNull(command)
 
+    if (values[8] == 1)
+    {
+    }
+    // checkDuplicates(command);
+
+    if (values[9] == 1)
+    {
+    }
+    // checkcheck(command)
+
+    if (values[10] == 1)
+    {
+    }
+    // checkdefault
 }
 
 vector<vector<string>> SQL::splitFile(fstream &f1, string s, bool b) // if b=true, that means its for files constraint.txt and constraintLength.txt, else it is for datatype.txt
@@ -584,7 +670,7 @@ void SQL::desc(vector<string> command)
 }
 int main()
 {
-    string s = "create table stud(grno int primary_key, name varchar(20));";
+    string s = "insert into demo values (null,NA);";
     //"insert into stud values (11817, 'john');";
     //"create table stud(grno int primary_key, name varchar(20));";
     //"create table phase(phaseno int(3,2) primary_key, cardname varchar(20));"
