@@ -1,0 +1,2 @@
+stud#grno,name,
+phase#phaseno,cardname,

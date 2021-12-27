@@ -1,0 +1,2 @@
+stud#grno#int#name#varchar
+phase#phaseno#int#cardname#varchar

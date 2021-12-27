@@ -90,6 +90,8 @@ public:
     bool checkDuplicates(string command, string table);
     void dropTable(string tableName);
     void replaceFiles(string fileName, string tableName);
+    void select(vector<string> command);
+    void fetchAll(string table);
 
     void read_schema()
     {
@@ -136,7 +138,8 @@ void SQL ::execute(vector<string> command)
     }
     else if (lower(command[0]) == "select")
     {
-        cout << "select()";
+        cout << "select()\n";
+        select(command);
     }
     else if (lower(command[0]) == "insert")
     {
@@ -312,14 +315,15 @@ void SQL::insert(vector<string> command)
             attr_table[i] = boolValues;
         }
 
-        for (auto x : attr_table)
-        {
-            cout << x.first << " ";
-            for (auto i : x.second)
-                cout << i << " ";
-            cout << endl;
-        }
+        // for (auto x : attr_table)
+        // {
+        //     cout << x.first << " ";
+        //     for (auto i : x.second)
+        //         cout << i << " ";
+        //     cout << endl;
+        // }
 
+        bool check;
         for (int i = 4; i < command.size(); i++)
         {
             command[i].erase(
@@ -329,11 +333,14 @@ void SQL::insert(vector<string> command)
                 break;
 
             vector<int> values = attr_table[i - 3];
-            bool check = operation(values, command[i], table_name, i - 3);
+            check = operation(values, command[i], table_name, i - 3);
             // cout << "Bool - " << check << endl;
             if (!check)
                 break;
             op_table << command[i] << "#";
+        }
+        if (check)
+        {
             cout << "\nData inserted successfully\n";
             op_table << "\n";
         }
@@ -710,9 +717,67 @@ void SQL::replaceFiles(string fileName, string tableName)
     delete[] writable;
 }
 
+void SQL::select(vector<string> command)
+{
+    string table;
+    vector<string>::iterator itr = find(command.begin(), command.end(), "from");
+    if (itr != end(command))
+    {
+        table = command[itr - command.begin() + 1]; // itr-vector.begin gives index of "from" element
+    }
+    else
+    {
+        cout << "Syntax Error";
+    }
+
+    // select * from table_name
+    if (command[1] == "*")
+    {
+        fetchAll(table);
+    }
+}
+
+void SQL::fetchAll(string table)
+{
+    if (notin(lower(table), tables))
+    {
+        cout << "Error : No such table exists\n";
+    }
+    else
+    {
+        ifstream f1;
+        fstream f2;
+        f1.open(table + ".txt");
+        f2.open("Column.txt");
+        int index = getIndex(tables, table);
+        GotoLine(f2, index + 1);
+        string line;
+        f2 >> line;
+        vector<string> columns = split(line);
+        string temp;
+        for (int i = 1; i < columns.size(); i++)
+        {
+            cout << columns[i] << "\t|\t";
+        }
+        cout << endl;
+        while (getline(f1, temp))
+        {
+            vector<string> records = split(temp);
+            for (int i = 0; i < records.size(); i++)
+            {
+                cout << records[i] << "\t|\t";
+            }
+            cout << endl;
+        }
+        f1.close();
+        f2.close();
+    }
+}
+
 int main()
 {
-    string s = "drop table stud";
+    string s = "select * from stud ;";
+    //"drop table stud";
     // "insert into demo values (345135699999,'abcdef');";
     //"insert into stud values (11817, 'john');";
     //"create table stud(grno int primary_key, name varchar(20));";
