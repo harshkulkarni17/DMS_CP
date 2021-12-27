@@ -1,2 +1,0 @@
-demo#primary_key-,not_null-,
-stud#primary_key-,NA-,

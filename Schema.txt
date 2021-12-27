@@ -1,2 +1,0 @@
-demo#id#int#name#varchar
-stud#grno#int#name#varchar

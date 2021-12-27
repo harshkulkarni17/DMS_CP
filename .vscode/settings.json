@@ -1,5 +1,10 @@
 {
     "files.associations": {
-        "vector": "cpp"
+        "vector": "cpp",
+        "optional": "cpp",
+        "functional": "cpp",
+        "limits": "cpp",
+        "regex": "cpp",
+        "tuple": "cpp"
     }
 }

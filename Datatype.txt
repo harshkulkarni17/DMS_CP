@@ -1,2 +1,0 @@
-demo#int,varchar,
-stud#int,varchar,

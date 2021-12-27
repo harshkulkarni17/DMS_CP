@@ -84,10 +84,13 @@ public:
     void insert(vector<string> s);
     void desc(vector<string> s);
     vector<vector<string>> splitFile(fstream &, string, bool);
-    void operation(vector<int> values, string command, string table_name, int attr_no);
+    bool operation(vector<int> values, string command, string table_name, int attr_no);
     bool isInteger(string command);
     bool isFloat(string command);
     bool checkDuplicates(string command, string table);
+    void dropTable(string tableName);
+    void replaceFiles(string fileName, string tableName);
+
     void read_schema()
     {
         ip_file.open("Schema.txt", ios ::in);
@@ -105,6 +108,7 @@ public:
             }
             tables.push_back(temp);
         }
+        ip_file.close();
     }
 
     string lower(string upTxt)
@@ -155,6 +159,7 @@ void SQL ::execute(vector<string> command)
     else if (lower(command[0]) == "drop")
     {
         cout << "drop()";
+        dropTable(command[2]);
     }
     else if (lower(command[0]) == "alter")
     {
@@ -315,30 +320,6 @@ void SQL::insert(vector<string> command)
             cout << endl;
         }
 
-        /*for (int i = 0; i < Length.size(); i++)
-        {
-            cout << "Length - ";
-            for (int j = 0; j < Length[i].size(); j++)
-            {
-                cout << Length[i][j] << " ";
-            }
-            cout << endl;
-
-            cout << "Datatype - ";
-            for (int j = 0; j < Datatype[i].size(); j++)
-            {
-                cout << Datatype[i][j] << " ";
-            }
-            cout << endl;
-
-            cout << "Constraint - ";
-            for (int j = 0; j < Constraint[i].size(); j++)
-            {
-                cout << Constraint[i][j] << " ";
-            }
-            cout << endl;
-        }*/
-
         for (int i = 4; i < command.size(); i++)
         {
             command[i].erase(
@@ -348,11 +329,14 @@ void SQL::insert(vector<string> command)
                 break;
 
             vector<int> values = attr_table[i - 3];
-            operation(values, command[i], table_name, i - 3);
+            bool check = operation(values, command[i], table_name, i - 3);
+            // cout << "Bool - " << check << endl;
+            if (!check)
+                break;
             op_table << command[i] << "#";
+            cout << "\nData inserted successfully\n";
+            op_table << "\n";
         }
-        cout << "\nData inserted successfully\n";
-        op_table << "\n";
         op_table.close();
     }
 }
@@ -407,21 +391,23 @@ bool SQL ::checkDuplicates(string command, string table_name)
     return false;    // if duplicate not found
 }
 
-void SQL::operation(vector<int> values, string command, string table_name, int attr_no)
+bool SQL::operation(vector<int> values, string command, string table_name, int attr_no)
 {
-
     if (values[0] == 1)
     {
         if (!isInteger(command))
         {
             cout << "Error " << command << " is not of type integer" << endl;
+            return false;
         }
     }
+
     else if (values[1] == 1)
     {
         if (!isFloat(command))
         {
             cout << "Error " << command << " is not of type float" << endl;
+            return false;
         }
     }
     // else if (values[2] == 1)
@@ -438,7 +424,7 @@ void SQL::operation(vector<int> values, string command, string table_name, int a
         if (t > values[3])
         {
             cout << "Error : Length Constraint Violated due to " << command << endl;
-            // return false;
+            return false;
         }
     }
 
@@ -448,7 +434,7 @@ void SQL::operation(vector<int> values, string command, string table_name, int a
         if (temp[1].size() > values[4])
         {
             cout << "Error : Precision Constraint Violated due to " << command << endl;
-            // return false;
+            return false;
         }
     }
 
@@ -457,41 +443,45 @@ void SQL::operation(vector<int> values, string command, string table_name, int a
         if (lower(command) == "na" || lower(command) == "null")
         {
             cout << "Error : Null value detected - This attribute can't be null\n";
+            return false;
         }
-        else if(checkDuplicates(command, table_name))
+        else if (checkDuplicates(command, table_name))
         {
             cout << "Error : Your entered key is already exists in the table " << endl;
+            return false;
         }
     }
 
-    if (values[6] == 1)
-    {
-    }
-    // checkForignkey
+    // if (values[6] == 1)
+    // {
+    // }
+    // // checkForignkey
 
     if (values[7] == 1)
     {
         if (lower(command) == "na" || lower(command) == "null")
         {
             cout << "Error : Null value detected - This attribute can't be null\n";
+            return false;
         }
     }
     // checkNull(command)
 
-    if (values[8] == 1)
-    {
-    }
-    // checkDuplicates(command);
+    // if (values[8] == 1)
+    // {
+    // }
+    // // checkDuplicates(command);
 
-    if (values[9] == 1)
-    {
-    }
-    // checkcheck(command)
+    // if (values[9] == 1)
+    // {
+    // }
+    // // checkcheck(command)
 
-    if (values[10] == 1)
-    {
-    }
-    // checkdefault
+    // if (values[10] == 1)
+    // {
+    // }
+    // // checkdefault
+    return true;
 }
 
 vector<vector<string>> SQL::splitFile(fstream &f1, string s, bool b) // if b=true, that means its for files constraint.txt and constraintLength.txt, else it is for datatype.txt
@@ -668,9 +658,62 @@ void SQL::desc(vector<string> command)
         ip_file3.close();
     }
 }
+
+void SQL::dropTable(string tableName)
+{
+    if (notin(lower(tableName), tables))
+    {
+        cout << "\nError : No such table exsits\n";
+    }
+    else
+    {
+        replaceFiles("Schema.txt", tableName);
+        replaceFiles("Column.txt", tableName);
+        replaceFiles("Constraint.txt", tableName);
+        replaceFiles("ConstrLength.txt", tableName);
+        replaceFiles("Datatype.txt", tableName);
+        cout << "\nTable deleted successfully" << endl;
+    }
+}
+
+void SQL::replaceFiles(string fileName, string tableName)
+{
+    fstream f1;
+    ofstream temp;
+    string line;
+    f1.open(fileName);
+    temp.open("temp.txt");
+    int index = getIndex(tables, tableName);
+    int count = 0;
+
+    char *writable = new char[fileName.size() + 1];
+    copy(fileName.begin(), fileName.end(), writable);
+    writable[fileName.size()] = '\0'; // don't forget the terminating 0
+
+    while (getline(f1, line))
+    {
+        if (count == index)
+        {
+            count++;
+        }
+        else
+        {
+            temp << line << endl;
+            count++;
+        }
+    }
+
+    temp.close();
+    f1.close();
+    remove(writable);
+    rename("temp.txt", writable);
+    delete[] writable;
+}
+
 int main()
 {
-    string s = "insert into demo values (null,NA);";
+    string s = "drop table stud";
+    // "insert into demo values (345135699999,'abcdef');";
     //"insert into stud values (11817, 'john');";
     //"create table stud(grno int primary_key, name varchar(20));";
     //"create table phase(phaseno int(3,2) primary_key, cardname varchar(20));"
