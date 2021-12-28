@@ -92,6 +92,9 @@ public:
     void replaceFiles(string fileName, string tableName);
     void select(vector<string> command);
     void fetchAll(string table);
+    void alterTable(vector<string> command);
+    void alterFiles(vector<string> command, int index, int flag);
+    void updateFiles(string fileName, int index, vector<string> append_str);
 
     void read_schema()
     {
@@ -773,11 +776,353 @@ void SQL::fetchAll(string table)
         f2.close();
     }
 }
+void SQL ::updateFiles(string fileName, int index, vector<string> append_str)
+{
+    ofstream temp;
+    string line;
+    fstream f1;
+    f1.open(fileName);
+    temp.open("temp.txt");
+    int count = 0;
+    char *writable = new char[fileName.size() + 1];
+    copy(fileName.begin(), fileName.end(), writable);
+    writable[fileName.size()] = '\0'; // don't forget the terminating 0
+
+    while (getline(f1, line))
+    {
+        if (count == index)
+        {
+            count++;
+            if (append_str.size() == 1)
+            {
+                temp << line << append_str[0] << endl; // Check if "," is required or not
+            }
+            else
+            {
+                temp << line;
+                for (int i = 0; i < append_str.size(); i++)
+                {
+                    temp << append_str[i] << "-";
+                }
+                temp << endl;
+            }
+        }
+        else
+        {
+            temp << line << endl;
+            count++;
+        }
+    }
+
+    temp.close();
+    f1.close();
+    remove(writable);
+    rename("temp.txt", writable);
+    delete[] writable;
+}
+void SQL ::alterFiles(vector<string> command, int index, int flag) // flag = 0 for add 1 for drop 2 for rename 3 for modify
+{
+    // command starts from 4 from previous command
+    if (flag == 0) // col_name datatype constraint/constraints
+    {
+        // Adding new col
+        
+        updateFiles("Column.txt", index, {command[0]});
+        updateFiles("Datatype.txt", index, {command[1]});
+        if (command.size() == 3)
+        {
+            if (isNumber(command[3]))
+            {
+                updateFiles("ConstrLength.txt", index, {command[2]});
+            }
+            updateFiles("Constraint.txt", index, {command[2]});
+        }
+        else if (command.size() > 3)
+        {
+            if (isNumber(command[3]))
+            {
+                if (command.size() == 5)
+                    updateFiles("ConstrLength.txt", index, {command[3], command[4]});
+                else
+                    updateFiles("ConstrLength.txt", index, {command[3], "NA"});
+            }
+            else
+            {
+                updateFiles("ConstrLength.txt", index, vector<string>(command.begin() + 3, command.end()));
+            }
+        }
+        else
+        {
+            updateFiles("Constraint.txt", index, {"NA"});
+            updateFiles("ConstrLength.txt", index, {"0"});
+        }
+    }
+    else if (flag == 1)
+    {
+        // Drop column
+        // Alter table table_name drop column col_name
+        fstream f1, f2, f3, f4;
+        f1.open("Column.txt");
+        f2.open("Constraint.txt");
+        f3.open("ConstrLength.txt");
+        f4.open("Datatype.txt");
+        vector<vector<string>> Columns, Constraint, Constrlength, Datatype;
+        Columns = splitFile(f1, tables[index], false);     // Check this
+        Constraint = splitFile(f2, tables[index], true);   // Check this
+        Constrlength = splitFile(f3, tables[index], true); // Check this
+        Datatype = splitFile(f4, tables[index], false);    // Check this
+        vector<string> columns;
+        for (auto i : Columns)
+        {
+            columns.push_back(i[0]);
+        }
+        int index_1 = -1;
+        for (int i = 0; i < columns.size(); i++)
+        {
+            if (columns[i] == command[0])
+            {
+                index_1 = i;
+            }
+        }
+        auto it = columns.begin() + index_1;
+        auto it1 = Constraint.begin() + index_1;
+        auto it2 = Constrlength.begin() + index_1;
+        auto it3 = Datatype.begin() + index_1;
+        columns.erase(it);
+        Constraint.erase(it1);
+        Constrlength.erase(it2);
+        Datatype.erase(it3);
+        string replace_col, replace_cons, replace_len, replace_dt;
+        replace_col = tables[index] + "#";
+        replace_cons = tables[index] + "#";
+        replace_len = tables[index] + "#";
+        replace_dt = tables[index] + "#";
+        for (auto i : columns)
+        {
+            replace_col += i + ",";
+        }
+        for (auto i : Datatype)
+        {
+            for (auto j : i)
+                replace_dt += j + ",";
+        }
+        for (auto i : Constraint)
+        {
+            for (auto j : i)
+                replace_cons += j + "-";
+            replace_cons += ",";
+        }
+        for (auto i : Constrlength)
+        {
+            for (auto j : i)
+                replace_len += j + "-";
+            replace_len += ",";
+        }
+        ofstream temp;
+        ofstream temp1;
+        ofstream temp2;
+        ofstream temp3;
+        string line;
+        string line1;
+        string line2;
+        string line3;
+        string fileName = "Column.txt";
+        string fileName1 = "Constraint.txt";
+        string fileName2 = "ConstrLength.txt";
+        string fileName3 = "Datatype.txt";
+        temp.open("temp.txt");
+        temp1.open("temp1.txt");
+        temp2.open("temp2.txt");
+        temp3.open("temp3.txt");
+        int count = 0;
+        int count1 = 0;
+        int count2 = 0;
+        int count3 = 0;
+        char *writable = new char[fileName.size() + 1];
+        copy(fileName.begin(), fileName.end(), writable);
+        writable[fileName.size()] = '\0'; // don't forget the terminating 0
+        char *writable1 = new char[fileName1.size() + 1];
+        copy(fileName1.begin(), fileName1.end(), writable1);
+        writable1[fileName1.size()] = '\0'; // don't forget the terminating 0
+        char *writable2 = new char[fileName2.size() + 1];
+        copy(fileName2.begin(), fileName2.end(), writable2);
+        writable2[fileName2.size()] = '\0'; // don't forget the terminating 0
+        char *writable3 = new char[fileName3.size() + 1];
+        copy(fileName3.begin(), fileName3.end(), writable3);
+        writable3[fileName3.size()] = '\0'; // don't forget the terminating 0
+        while (getline(f1, line))
+        {
+            if (count == index)
+            {
+                count++;
+                temp << replace_col << endl;
+            }
+            else
+            {
+                temp << line << endl;
+                count++;
+            }
+        }
+        while (getline(f2, line1))
+        {
+            if (count1 == index)
+            {
+                count1++;
+                temp1 << replace_cons;
+            }
+            else
+            {
+                temp1 << line1 << endl;
+                count1++;
+            }
+        }
+        while (getline(f3, line2))
+        {
+            if (count2 == index)
+            {
+                count2++;
+                temp2 << replace_len;
+            }
+            else
+            {
+                temp2 << line2 << endl;
+                count2++;
+            }
+        }
+        while (getline(f4, line3))
+        {
+            if (count3 == index)
+            {
+                count3++;
+                temp3 << replace_dt;
+            }
+            else
+            {
+                temp3 << line3 << endl;
+                count3++;
+            }
+        }
+        temp.close();
+        temp1.close();
+        temp2.close();
+        temp3.close();
+        f1.close();
+        f2.close();
+        f3.close();
+        f4.close();
+        remove(writable);
+        remove(writable1);
+        remove(writable2);
+        remove(writable3);
+        rename("temp.txt", writable);
+        rename("temp1.txt", writable1);
+        rename("temp2.txt", writable2);
+        rename("temp3.txt", writable3);
+        delete[] writable;
+        delete[] writable1;
+        delete[] writable2;
+        delete[] writable3;
+    }
+    else if (flag == 2)
+    {}
+    else
+    {}
+}
+void SQL ::alterTable(vector<string> command)
+{
+    // Alter table table_name add col_name datatype
+    // Alter table table_name drop column col_name
+    // Alter table table_name rename col_name to new_col_name
+    // Alter table table_name modify col_name new_datatype
+    string table = command[2];
+
+    if (notin(lower(table), tables))
+    {
+        cout << "Error : No such table created\n";
+    }
+    else
+    {
+        int index = getIndex(tables, table);
+        string types = command[3];
+        fstream f2("Column.txt");
+        vector<vector<string>> columns = splitFile(f2, table, false);
+        vector<string> Columns_main;
+        f2.close();
+        for (int i = 0; i < columns.size(); i++)
+        {
+            Columns_main.push_back(columns[i][0]);
+        }
+        if (lower(types) == "add")
+        {
+            if (notin(lower(command[4]), constraints))
+            {
+                if (notin(lower(command[4]), Columns_main))
+                {
+                    alterFiles(vector<string>(command.begin() + 4, command.end()), index, 0);
+                    // Add col to files schema, column, constraint, constrlength, datatype
+                }
+                else
+                {
+                    cout << "Error : Column name already exists" << endl;
+                }
+            }
+            else
+            {
+                alterFiles(vector<string>(command.begin() + 4, command.end()), index, 0);
+            }
+        }
+        else if (lower(types) == "drop")
+        {
+            if (command.size() < 6)
+            {
+                cout << "Error: Mention Column name" << endl;
+            }
+            if (notin(lower(command[5]), Columns_main))
+            {
+                cout << "Error : No such column exists" << endl;
+            }
+            else
+            {
+                // delete col from files schema, column, constraint, constrlength, datatype
+                alterFiles({command[5]}, index, 1);
+            }
+        }
+        else if (lower(types) == "rename")
+        {
+            if (notin(lower(command[4]), Columns_main))
+            {
+                cout << "Error : No such column exists" << endl;
+            }
+            else
+            {
+                // update col_name to files schema, column, constraint, constrlength, datatype
+                alterFiles(vector<string>(command.begin() + 4, command.end()), index, 2);
+            }
+        }
+        else if (lower(types) == "modify")
+        {
+            if (notin(lower(command[4]), Columns_main))
+            {
+                cout << "Error : No such column exists" << endl;
+            }
+            else
+            {
+                // add constraints to col in files schema, column, constraint, constrlength, datatype
+                alterFiles(vector<string>(command.begin() + 4, command.end()), index, 3);
+            }
+        }
+        else
+        {
+            cout << "Syntax Error" << endl;
+        }
+    }
+}
 
 int main()
 {
-    string s = "select * from stud ;";
+    string s = "alter table demo add marks int";
     //"drop table stud";
+    // "select * from stud ;"
     // "insert into demo values (345135699999,'abcdef');";
     //"insert into stud values (11817, 'john');";
     //"create table stud(grno int primary_key, name varchar(20));";
