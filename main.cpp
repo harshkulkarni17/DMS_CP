@@ -8,6 +8,7 @@ public:
     vector<string> types = {"int", "varchar", "float"};
     vector<string> command;
     vector<string> constraints = {"primary_key", "foreign_key", "unique", "check", "not_null", "default", "references"};
+    vector<string> operators = {"=", "<=", ">=", "<>", "!=", "!", ">", "<", "%"};
     ifstream ip_file;
     ofstream op_file, datatype, col_names, constraint, constrLength;
 
@@ -30,7 +31,7 @@ public:
         while (getline(stringStream, line))
         {
             size_t prev = 0, pos;
-            while ((pos = line.find_first_of(" (),#", prev)) != string ::npos)
+            while ((pos = line.find_first_of(" (),#;", prev)) != string ::npos)
             {
                 if (pos > prev)
                     wordVector.push_back(line.substr(prev, pos - prev));
@@ -92,6 +93,10 @@ public:
     void replaceFiles(string fileName, string tableName);
     void select(vector<string> command);
     void fetchAll(string table);
+    void fetchRecordProjection(string table, vector<string> temp);
+    void fetchAllbyCondition(string table, vector<string> whereClause);
+    void fetchRecordProjectionbyCondition(string table, vector<string> temp, vector<string> whereClause);
+    vector<string> getColumns(string table);
     void alterTable(vector<string> command);
     void alterFiles(vector<string> command, int index, int flag);
     void updateFiles(string fileName, int index, vector<string> append_str);
@@ -170,6 +175,7 @@ void SQL ::execute(vector<string> command)
     else if (lower(command[0]) == "alter")
     {
         cout << "alter()";
+        alterTable(command);
     }
     else
     {
@@ -733,49 +739,371 @@ void SQL::select(vector<string> command)
         cout << "Syntax Error";
     }
 
-    // select * from table_name
-    if (command[1] == "*")
+    // check if there is where clause present or not
+    bool present;
+    int index;
+    vector<string> whereClause;
+    vector<string>::iterator it = find(command.begin(), command.end(), "where");
+    if (it != end(command))
     {
-        fetchAll(table);
+        present = true;
+        index = it - command.begin(); // index of where keyword
+        for (int i = index + 1; i < command.size(); i++)
+        {
+            if (command[i] == ";")
+                continue;
+            whereClause.push_back(command[i]);
+        }
     }
-}
 
-void SQL::fetchAll(string table)
-{
     if (notin(lower(table), tables))
     {
         cout << "Error : No such table exists\n";
     }
     else
     {
-        ifstream f1;
-        fstream f2;
-        f1.open(table + ".txt");
-        f2.open("Column.txt");
-        int index = getIndex(tables, table);
-        GotoLine(f2, index + 1);
-        string line;
-        f2 >> line;
-        vector<string> columns = split(line);
-        string temp;
-        for (int i = 1; i < columns.size(); i++)
+        // select * from table_name
+        if (command[1] == "*")
         {
-            cout << columns[i] << "\t|\t";
-        }
-        cout << endl;
-        while (getline(f1, temp))
-        {
-            vector<string> records = split(temp);
-            for (int i = 0; i < records.size(); i++)
+            if (present)
             {
-                cout << records[i] << "\t|\t";
+                fetchAllbyCondition(table, whereClause);
             }
-            cout << endl;
+            else
+            {
+                fetchAll(table);
+            }
         }
-        f1.close();
-        f2.close();
+        else
+        {
+            // select grno, name from stud;
+            int index;
+            auto it = find(command.begin(), command.end(), "from");
+            if (it != command.end())
+            {
+                index = it - command.begin();
+            }
+
+            // get projected col names in temp vector
+            vector<string> temp;
+            for (int i = 1; i < index; i++)
+                temp.push_back(command[i]); // temp = {grno,name}
+
+            if (present)
+            {
+                fetchRecordProjectionbyCondition(table, temp, whereClause);
+            }
+            else
+            {
+                fetchRecordProjection(table, temp);
+            }
+        }
     }
 }
+
+vector<string> SQL::getColumns(string table)
+{
+    fstream f2;
+    f2.open("Column.txt");
+    int index = getIndex(tables, table);
+    GotoLine(f2, index + 1);
+    string line;
+    f2 >> line;
+    vector<string> columns = split(line);
+    columns.erase(columns.begin());
+    f2.close();
+    return columns;
+}
+
+void SQL::fetchAll(string table)
+{
+    ifstream f1;
+    f1.open(table + ".txt");
+    vector<string> columns = getColumns(table);
+    string temp;
+    for (int i = 0; i < columns.size(); i++)
+    {
+        cout << columns[i] << "\t|\t";
+    }
+    cout << endl;
+    while (getline(f1, temp))
+    {
+        vector<string> records = split(temp);
+        for (int i = 0; i < records.size(); i++)
+        {
+            cout << records[i] << "\t|\t";
+        }
+        cout << endl;
+    }
+    f1.close();
+}
+
+void SQL::fetchRecordProjectionbyCondition(string table, vector<string> temp, vector<string> whereClause)
+{
+    ifstream f1;
+    f1.open(table + ".txt");
+    vector<string> columns = getColumns(table);
+    vector<int> indexes;
+    for (int i = 0; i < temp.size(); i++)
+    {
+        int index;
+        auto it = find(columns.begin(), columns.end(), temp[i]);
+        if (it != columns.end())
+        {
+            cout << temp[i] << "\t|\t";
+            index = it - columns.begin();
+            // cout << "index = " << index << endl;
+            indexes.push_back(index);
+        }
+        else
+        {
+            cout << "Column \'" << temp[i] << "\' does not exists in table " << table << endl;
+            return;
+        }
+    }
+    cout << endl;
+
+    vector<string> col, opr, val;
+    for (int i = 0; i < whereClause.size(); i++)
+    {
+        whereClause[i].erase(
+            remove(whereClause[i].begin(), whereClause[i].end(), '\''),
+            whereClause[i].end());
+        if (find(columns.begin(), columns.end(), whereClause[i]) != columns.end())
+        {
+            col.push_back(whereClause[i]);
+        }
+        else if (find(operators.begin(), operators.end(), whereClause[i]) != operators.end())
+        {
+            opr.push_back(whereClause[i]);
+        }
+        else
+        {
+            val.push_back(whereClause[i]);
+        }
+    }
+
+    string line;
+    int flag = 0, flag1 = 0;
+    while (getline(f1, line))
+    {
+        flag = 1;
+        vector<string> records = split(line);
+        auto it = find(columns.begin(), columns.end(), col[0]);
+        int index = it - columns.begin();
+        for (int i = 0; i < indexes.size(); i++)
+        {
+            flag1 = 0;
+            if (opr[0] == "=")
+            {
+                if (records[index] == val[0])
+                {
+                    cout << records[indexes[i]] << "\t|\t";
+                    flag1 = 1;
+                }
+            }
+            else if (opr[0] == "!=" || opr[0] == "<>")
+            {
+                if (records[index] != val[0])
+                {
+                    cout << records[indexes[i]] << "\t|\t";
+                    flag1 = 1;
+                }
+            }
+            else if (opr[0] == "<=")
+            {
+                if (records[index] <= val[0])
+                {
+                    cout << records[indexes[i]] << "\t|\t";
+                    flag1 = 1;
+                }
+            }
+            else if (opr[0] == ">=")
+            {
+                if (records[index] >= val[0])
+                {
+                    cout << records[indexes[i]] << "\t|\t";
+                    flag1 = 1;
+                }
+            }
+            else if (opr[0] == ">")
+            {
+                if (records[index] > val[0])
+                {
+                    cout << records[indexes[i]] << "\t|\t";
+                    flag1 = 1;
+                }
+            }
+            else if (opr[0] == "<")
+            {
+                if (records[index] < val[0])
+                {
+                    cout << records[indexes[i]] << "\t|\t";
+                    flag1 = 1;
+                }
+            }
+            else
+            {
+                flag1 = 0;
+            }
+        }
+        if (flag1 == 1)
+            cout << endl;
+    }
+    if (flag == 0)
+    {
+        cout << "No data found" << endl;
+        return;
+    }
+    f1.close();
+}
+
+void SQL::fetchRecordProjection(string table, vector<string> temp)
+{
+    ifstream f1;
+    f1.open(table + ".txt");
+    vector<string> columns = getColumns(table);
+    vector<int> indexes;
+    for (int i = 0; i < temp.size(); i++)
+    {
+        int index;
+        auto it = find(columns.begin(), columns.end(), temp[i]);
+        if (it != columns.end())
+        {
+            cout << temp[i] << "\t|\t";
+            index = it - columns.begin();
+            // cout << "index = " << index << endl;
+            indexes.push_back(index);
+        }
+        else
+        {
+            cout << "Column \'" << temp[i] << "\' does not exists in table " << table << endl;
+            return;
+        }
+    }
+    cout << endl;
+
+    string line;
+    int flag = 0;
+    while (getline(f1, line))
+    {
+        flag = 1;
+        vector<string> records = split(line);
+        for (int i = 0; i < indexes.size(); i++)
+        {
+            cout << records[indexes[i]] << "\t|\t";
+        }
+        cout << endl;
+    }
+    if (flag == 0)
+    {
+        cout << "No data found" << endl;
+        return;
+    }
+    f1.close();
+}
+
+void SQL::fetchAllbyCondition(string table, vector<string> whereClause)
+{
+    vector<string> columns = getColumns(table);
+    vector<string> col, opr, val;
+    for (int i = 0; i < whereClause.size(); i++)
+    {
+        whereClause[i].erase(
+            remove(whereClause[i].begin(), whereClause[i].end(), '\''),
+            whereClause[i].end());
+        if (find(columns.begin(), columns.end(), whereClause[i]) != columns.end())
+        {
+            col.push_back(whereClause[i]);
+        }
+        else if (find(operators.begin(), operators.end(), whereClause[i]) != operators.end())
+        {
+            opr.push_back(whereClause[i]);
+        }
+        else
+        {
+            val.push_back(whereClause[i]);
+        }
+    }
+
+    int flag = 0;
+    ifstream f1;
+    int index;
+    f1.open(table + ".txt");
+    string temp;
+    for (int i = 0; i < columns.size(); i++)
+    {
+        cout << columns[i] << "\t|\t";
+    }
+    cout << endl;
+    while (getline(f1, temp))
+    {
+        vector<string> records = split(temp);
+        auto it = find(columns.begin(), columns.end(), col[0]);
+        index = it - columns.begin();
+
+        for (int i = 0; i < records.size(); i++)
+        {
+            flag = 0;
+            if (opr[0] == "=")
+            {
+                if (records[index] == val[0])
+                {
+                    cout << records[i] << "\t|\t";
+                    flag = 1;
+                }
+            }
+            else if (opr[0] == "!=" || opr[0] == "<>")
+            {
+                if (records[index] != val[0])
+                {
+                    cout << records[i] << "\t|\t";
+                    flag = 1;
+                }
+            }
+            else if (opr[0] == "<")
+            {
+                if (records[index] < val[0])
+                {
+                    cout << records[i] << "\t|\t";
+                    flag = 1;
+                }
+            }
+            else if (opr[0] == ">")
+            {
+                if (records[index] > val[0])
+                {
+                    cout << records[i] << "\t|\t";
+                    flag = 1;
+                }
+            }
+            else if (opr[0] == "<=")
+            {
+                if (records[index] <= val[0])
+                {
+                    cout << records[i] << "\t|\t";
+                    flag = 1;
+                }
+            }
+            else if (opr[0] == ">=")
+            {
+                if (records[index] >= val[0])
+                {
+                    cout << records[i] << "\t|\t";
+                    flag = 1;
+                }
+            }
+            else
+            {
+                flag = 0;
+            }
+        }
+        if (flag == 1)
+            cout << endl;
+    }
+    f1.close();
+}
+
 void SQL ::updateFiles(string fileName, int index, vector<string> append_str)
 {
     ofstream temp;
@@ -826,7 +1154,7 @@ void SQL ::alterFiles(vector<string> command, int index, int flag) // flag = 0 f
     if (flag == 0) // col_name datatype constraint/constraints
     {
         // Adding new col
-        
+
         updateFiles("Column.txt", index, {command[0]});
         updateFiles("Datatype.txt", index, {command[1]});
         if (command.size() == 3)
@@ -1024,9 +1352,11 @@ void SQL ::alterFiles(vector<string> command, int index, int flag) // flag = 0 f
         delete[] writable3;
     }
     else if (flag == 2)
-    {}
+    {
+    }
     else
-    {}
+    {
+    }
 }
 void SQL ::alterTable(vector<string> command)
 {
@@ -1120,7 +1450,9 @@ void SQL ::alterTable(vector<string> command)
 
 int main()
 {
-    string s = "alter table demo add marks int";
+    string s = "select grno, name from stud where name <> 'PQRS';";
+    //"alter table phase drop column ttl";
+    //"alter table phase add ttl int";
     //"drop table stud";
     // "select * from stud ;"
     // "insert into demo values (345135699999,'abcdef');";
