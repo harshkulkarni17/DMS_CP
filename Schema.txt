@@ -1,2 +1,3 @@
 stud#grno#int#name#varchar
 phase#phaseno#int#cardname#varchar
+emp#id#int#name#varchar#sal#int

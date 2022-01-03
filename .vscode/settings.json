@@ -6,6 +6,8 @@
         "limits": "cpp",
         "regex": "cpp",
         "tuple": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "*.tcc": "cpp",
+        "iostream": "cpp"
     }
 }

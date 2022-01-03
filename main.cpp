@@ -12,14 +12,21 @@ public:
     ifstream ip_file;
     ofstream op_file, datatype, col_names, constraint, constrLength;
 
-    SQL(string query)
+    // SQL(string query)
+    // {
+    //     read_schema();
+    //     command = split(query);
+    //     // for (int i = 0; i < command.size(); i++)
+    //     // {
+    //     //     cout << command[i] << endl;
+    //     // }
+    //     execute(command);
+    // }
+
+    void setQuery(string query)
     {
         read_schema();
         command = split(query);
-        // for (int i = 0; i < command.size(); i++)
-        // {
-        //     cout << command[i] << endl;
-        // }
         execute(command);
     }
 
@@ -100,6 +107,10 @@ public:
     void alterTable(vector<string> command);
     void alterFiles(vector<string> command, int index, int flag);
     void updateFiles(string fileName, int index, vector<string> append_str);
+    void update(vector<string> command);
+    void helpTables();
+    void helpCommand(vector<string> command);
+    void quit();
 
     void read_schema()
     {
@@ -126,6 +137,7 @@ public:
         std::transform(upTxt.begin(), upTxt.end(), upTxt.begin(), ::tolower);
         return upTxt;
     }
+
     bool notin(string s, vector<string> c)
     {
         for (int i = 0; i < c.size(); i++)
@@ -161,7 +173,8 @@ void SQL ::execute(vector<string> command)
     }
     else if (lower(command[0]) == "update")
     {
-        cout << "update()";
+        cout << "update()\n";
+        update(command);
     }
     else if (lower(command[0]) == "delete")
     {
@@ -176,6 +189,21 @@ void SQL ::execute(vector<string> command)
     {
         cout << "alter()";
         alterTable(command);
+    }
+    else if (lower(command[0]) == "help" && command[1] == "tables")
+    {
+        cout << "Help Tables()\n";
+        helpTables();
+    }
+    else if (lower(command[0]) == "help")
+    {
+        cout << "Help Command()\n";
+        helpCommand(command);
+    }
+    else if (lower(command[0]) == "quit")
+    {
+        cout << "Quit()\n";
+        quit();
     }
     else
     {
@@ -475,18 +503,23 @@ bool SQL::operation(vector<int> values, string command, string table_name, int a
 
     if (values[7] == 1)
     {
+        // checkNull(command)
         if (lower(command) == "na" || lower(command) == "null")
         {
             cout << "Error : Null value detected - This attribute can't be null\n";
             return false;
         }
     }
-    // checkNull(command)
 
-    // if (values[8] == 1)
-    // {
-    // }
-    // // checkDuplicates(command);
+    if (values[8] == 1)
+    {
+        // unique
+        if (checkDuplicates(command, table_name))
+        {
+            cout << "Error : Unique constraint violated " << endl;
+            return false;
+        }
+    }
 
     // if (values[9] == 1)
     // {
@@ -1448,9 +1481,260 @@ void SQL ::alterTable(vector<string> command)
     }
 }
 
+void SQL::update(vector<string> command)
+{
+    // UPDATE table_name set col_name1 = val1, col_name2 = val2 where col_name = val;
+    for (int i = 0; i < command.size(); i++)
+    {
+        command[i].erase(
+            remove(command[i].begin(), command[i].end(), '\''),
+            command[i].end());
+    }
+
+    string table = command[1];
+    if (notin(lower(table), tables))
+    {
+        cout << "Error : No such table exists\n";
+    }
+    else
+    {
+        vector<string> col, val;
+        vector<string> columns = getColumns(table);
+        int index = 0;
+        vector<string>::iterator itr = find(command.begin(), command.end(), "where");
+        if (itr != end(command))
+        {
+            index = itr - command.begin(); // itr-vector.begin gives index of "where" element
+        }
+
+        if (index == 0)
+        {
+            for (int i = 3; i < command.size(); i++) // i=3 because col names start from index 3 in update command
+            {
+                if (find(columns.begin(), columns.end(), command[i]) != columns.end())
+                {
+                    col.push_back(command[i]);
+                }
+                else if (notin(command[i], operators))
+                {
+                    // command[i].erase(
+                    //     remove(command[i].begin(), command[i].end(), '\''),
+                    //     command[i].end());
+                    val.push_back(command[i]);
+                }
+            }
+        }
+        else
+        {
+            for (int i = 3; i < index; i++) // i=3 because col names start from index 3 in update command
+            {
+                if (find(columns.begin(), columns.end(), command[i]) != columns.end())
+                {
+                    col.push_back(command[i]);
+                }
+                else if (notin(command[i], operators))
+                {
+                    // command[i].erase(
+                    //     remove(command[i].begin(), command[i].end(), '\''),
+                    //     command[i].end());
+                    val.push_back(command[i]);
+                }
+            }
+        }
+
+        vector<int> colIndexes;
+        for (int i = 0; i < col.size(); i++)
+        {
+            vector<string>::iterator itr = find(columns.begin(), columns.end(), col[i]);
+            if (itr != end(columns))
+            {
+                int index1 = itr - columns.begin();
+                colIndexes.push_back(index1);
+            }
+        }
+
+        // where condition
+        string col_name, value;
+        int col_index;
+        if (index != 0) // means 'where' is present in command
+        {
+            col_name = command[index + 1];
+            value = command[index + 3];
+            // check index of col_name in columns vector
+            vector<string>::iterator itr = find(columns.begin(), columns.end(), col_name);
+            if (itr != end(columns))
+            {
+                col_index = itr - columns.begin();
+            }
+            else
+            {
+                cout << "Column \'" << col_name << "\' does not exists in table \'" << table << "\'" << endl;
+            }
+        }
+
+        // Fetch records to upadte
+        ifstream f1;
+        ofstream f2;
+        string fileName = table + ".txt";
+        f1.open(table + ".txt");
+        f2.open("temp.txt", ios::out);
+
+        char *writable = new char[fileName.size() + 1];
+        copy(fileName.begin(), fileName.end(), writable);
+        writable[fileName.size()] = '\0'; // don't forget the terminating 0
+
+        string temp;
+        int count = 0;
+        while (getline(f1, temp))
+        {
+            vector<string> records = split(temp);
+            for (int i = 0; i < records.size(); i++)
+            {
+                if (index != 0) // where clause present and update specific record
+                {
+                    if (records[col_index] == value) // condition becomes true
+                    {
+                        for (int j = 0; j < colIndexes.size(); j++)
+                        {
+                            if (i == colIndexes[j]) // change specified column value
+                            {
+                                records[i] = val[j];
+                                count++;
+                            }
+                        }
+                    }
+                    cout << records[i] << "\t|\t";
+                    f2 << records[i] << "#";
+                }
+                else
+                {
+                    // update all records
+                    for (int j = 0; j < colIndexes.size(); j++)
+                    {
+                        if (i == colIndexes[j]) // change specified column value
+                        {
+                            records[i] = val[j];
+                            count++;
+                        }
+                    }
+                    cout << records[i] << "\t|\t";
+                    f2 << records[i] << "#";
+                }
+            }
+            cout << endl;
+            f2 << endl;
+        }
+        cout << count / colIndexes.size() << " rows updated" << endl;
+        f1.close();
+        f2.close();
+        remove(writable);
+        rename("temp.txt", writable);
+        delete[] writable;
+    }
+}
+
+void SQL::helpTables()
+{
+    cout << "Existing Tables - " << endl;
+    cout << "-------------------------" << endl;
+    for (int i = 0; i < tables.size(); i++)
+    {
+        if (tables[i].size() < 6)
+        {
+            cout << "|\t" << tables[i] << "\t\t|" << endl;
+            cout << "-------------------------" << endl;
+        }
+        else
+        {
+            cout << "|\t" << tables[i] << "\t|" << endl;
+            cout << "-------------------------" << endl;
+        }
+    }
+}
+
+void SQL::helpCommand(vector<string> command)
+{
+    if (lower(command[1]) == "create")
+    {
+        cout << "Syntax for \'Create Table\' command is - " << endl;
+        cout << "\n----------------------------------------------------------------------------" << endl;
+        cout << "CREATE TABLE table_name ( \n  attribute_1 attribute1_type(length limit), \n  attribute_2 attribute2_type(length limit) PRIMARY_KEY, \n  FOREIGN KEY ( attribute_y ) REFERENCES table_x ( attribute_t ), \n  ... \n);" << endl;
+        cout << "--------------------------------------------------------------------------\n"
+             << endl;
+    }
+    else if (lower(command[1]) == "drop")
+    {
+        cout << "Syntax for \'Drop Table\' command is - " << endl;
+        cout << "\n-------------------------------------------" << endl;
+        cout << "DROP TABLE table_name;" << endl;
+        cout << "-------------------------------------------\n"
+             << endl;
+    }
+    else if (lower(command[1]) == "insert")
+    {
+        cout << "Syntax for \'Insert\' command is - " << endl;
+        cout << "\n---------------------------------------------------" << endl;
+        cout << "INSERT INTO table_name VALUES ( val1, val2, ... );" << endl;
+        cout << "---------------------------------------------------\n"
+             << endl;
+    }
+    else if (lower(command[1]) == "delete")
+    {
+        cout << "Syntax for \'Insert\' command is - " << endl;
+        cout << "\n---------------------------------------------------" << endl;
+        cout << "DELETE FROM table_name WHERE condition_list;" << endl;
+        cout << "---------------------------------------------------" << endl;
+        cout << "\ncondition_list - contains condition to delete specific record\n"
+             << endl;
+    }
+    else if (lower(command[1]) == "update")
+    {
+        cout << "Syntax for \'Update\' command is - " << endl;
+        cout << "\n---------------------------------------------------" << endl;
+        cout << "UPDATE table_name SET attr1 = val1, attr2 = val2 ... \nWHERE condition_list;" << endl;
+        cout << "---------------------------------------------------" << endl;
+        cout << "\ncondition_list - contains condition to update specific record\n"
+             << endl;
+    }
+    else if (lower(command[1]) == "select")
+    {
+        cout << "Syntax for \'Select\' command is - " << endl;
+        cout << "\n---------------------------------------------------------------" << endl;
+        cout << "SELECT attribute_list FROM table_list WHERE condition_list;" << endl;
+        cout << "---------------------------------------------------------------" << endl;
+        cout << "\nattribute_list - contains attr names from the table or *";
+        cout << "\ntable_list - contains table names from which you want to retrieve data";
+        cout << "\ncondition_list - contains condition (where clause) to filter the data\n"
+             << endl;
+    }
+    else
+    {
+        cout << "Syntax Error" << endl;
+    }
+}
+
+void SQL::quit()
+{
+    cout << "Terminating the program ..." << endl;
+    exit(3);
+}
+
 int main()
 {
-    string s = "select grno, name from stud where name <> 'PQRS';";
+    SQL sql;
+    while(true)
+    {
+        string s;
+        cout << "\n\nEnter SQL command - (Enter \'quit\' for exiting) " << endl;
+        getline(cin, s);
+        sql.setQuery(s);
+    }
+    //"create table grade (id int primary_key, grade varchar(2)";
+    //"quit;";
+    // "help tables;"
+    // "HELP select;";
+    //"update stud set grno = 15155 where name = 'ben' ;"
+    //"select * from stud where name < 'XYZ';"
     //"alter table phase drop column ttl";
     //"alter table phase add ttl int";
     //"drop table stud";
@@ -1461,6 +1745,5 @@ int main()
     //"create table phase(phaseno int(3,2) primary_key, cardname varchar(20));"
     // cout << "Enter the SQL command :- ";
     // getline(cin, s);
-    SQL sql(s);
     return 0;
 }

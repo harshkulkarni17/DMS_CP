@@ -1,2 +1,3 @@
 stud#primary_key-,NA-,
 phase#primary_key-,NA-,
+emp#primary_key-,NA-,not_null-,
