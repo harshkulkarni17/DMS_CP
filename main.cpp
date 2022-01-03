@@ -107,10 +107,17 @@ public:
     void alterTable(vector<string> command);
     void alterFiles(vector<string> command, int index, int flag);
     void updateFiles(string fileName, int index, vector<string> append_str);
+<<<<<<< HEAD
     void update(vector<string> command);
     void helpTables();
     void helpCommand(vector<string> command);
     void quit();
+=======
+    void deleteRecords(vector<string> command);
+    void deleteAllbyCondition(string table, vector<string> whereClause);
+    void deleteAll(string table);
+    void deleteFromFile(string table, vector<int> indexes);
+>>>>>>> 95bbc34cff705426bb05108e8211c5fad86bf70b
 
     void read_schema()
     {
@@ -1479,6 +1486,223 @@ void SQL ::alterTable(vector<string> command)
             cout << "Syntax Error" << endl;
         }
     }
+}
+void SQL ::deleteRecords(vector<string> command)
+{
+    string table;
+    cout << "In Delete Records" << endl;
+    vector<string>::iterator itr = find(command.begin(), command.end(), "from");
+    if (itr != end(command))
+    {
+        table = command[itr - command.begin() + 1]; // itr-vector.begin gives index of "from" element
+    }
+    else
+    {
+        cout << "Syntax Error";
+    }
+
+    // check if there is where clause present or not
+    bool present;
+    int index;
+    vector<string> whereClause;
+    vector<string>::iterator it = find(command.begin(), command.end(), "where");
+    if (it != end(command))
+    {
+        present = true;
+        index = it - command.begin(); // index of where keyword
+        for (int i = index + 1; i < command.size(); i++)
+        {
+            if (command[i] == ";")
+                continue;
+            whereClause.push_back(command[i]);
+        }
+    }
+
+    if (notin(lower(table), tables))
+    {
+        cout << "Error : No such table exists\n";
+    }
+    else
+    {
+        // delete from stud where name = 'PQRS';
+        if (command.size() == 3)
+        {
+                deleteAll(table);
+        }
+        else
+        {
+            // select grno, name from stud;
+            int index;
+            auto it = find(command.begin(), command.end(), "from");
+            if (it != command.end())
+            {
+                index = it - command.begin();
+            }
+
+            // get projected col names in temp vector
+            vector<string> temp;
+            for (int i = 1; i < index; i++)
+                temp.push_back(command[i]); // temp = {grno,name}
+            deleteAllbyCondition(table, whereClause);
+            // else
+            // {
+            //     deleteRecordProjection(table, temp);
+            // }
+        }
+    }
+}
+void SQL ::deleteAllbyCondition(string table, vector<string> whereClause)
+{
+
+    cout << "In Delete all by Condition" << endl;
+    vector<string> columns = getColumns(table);
+    vector<int> indexes;
+    vector<string> col, opr, val;
+    for (int i = 0; i < whereClause.size(); i++)
+    {
+        whereClause[i].erase(
+            remove(whereClause[i].begin(), whereClause[i].end(), '\''),
+            whereClause[i].end());
+        if (find(columns.begin(), columns.end(), whereClause[i]) != columns.end())
+        {
+            col.push_back(whereClause[i]);
+        }
+        else if (find(operators.begin(), operators.end(), whereClause[i]) != operators.end())
+        {
+            opr.push_back(whereClause[i]);
+        }
+        else
+        {
+            val.push_back(whereClause[i]);
+        }
+    }
+
+    // int flag = 0;
+    ifstream f1;
+    int index;
+    f1.open(table + ".txt");
+    string temp;
+    for (int i = 0; i < columns.size(); i++)
+    {
+        cout << columns[i] << "\t|\t";
+    }
+    cout << endl;
+    int count = 0;
+    while (getline(f1, temp))
+    {
+        vector<string> records = split(temp);
+        auto it = find(columns.begin(), columns.end(), col[0]);
+        index = it - columns.begin();
+
+        for (int i = 0; i < records.size(); i++)
+        {
+            // flag = 0;
+            if (opr[0] == "=")
+            {
+                if (records[index] == val[0])
+                {
+                    // cout << records[i] << "\t|\t";
+                    indexes.push_back(count);
+                    // flag = 1;
+                }
+            }
+            else if (opr[0] == "!=" || opr[0] == "<>")
+            {
+                if (records[index] != val[0])
+                {
+                    // cout << records[i] << "\t|\t";
+                    indexes.push_back(count);
+                    // flag = 1;
+                }
+            }
+            else if (opr[0] == "<")
+            {
+                if (records[index] < val[0])
+                {
+                    // cout << records[i] << "\t|\t";
+                    indexes.push_back(count);
+                    // flag = 1;
+                }
+            }
+            else if (opr[0] == ">")
+            {
+                if (records[index] > val[0])
+                {
+                    // cout << records[i] << "\t|\t";
+                    indexes.push_back(count);
+                    // flag = 1;
+                }
+            }
+            else if (opr[0] == "<=")
+            {
+                if (records[index] <= val[0])
+                {
+                    // cout << records[i] << "\t|\t";
+                    indexes.push_back(count);
+                    // flag = 1;
+                }
+            }
+            else if (opr[0] == ">=")
+            {
+                if (records[index] >= val[0])
+                {
+                    // cout << records[i] << "\t|\t";
+                    indexes.push_back(count);
+                    // flag = 1;
+                }
+            }
+        }
+        count++;
+    }
+    // for(auto i:indexes)
+    // {
+    //     cout << "Indexes " << i << endl; 
+    // }
+    f1.close();
+    deleteFromFile(table, indexes);
+
+}
+
+void SQL ::deleteAll(string table)
+{
+    ofstream f1;
+    f1.open(table + ".txt", std::ofstream::out | std::ofstream::trunc);
+    f1.close();
+}
+void SQL ::deleteFromFile(string table, vector<int> indexes)
+{
+    cout << "In deleteFromFile" << endl;
+    string fileName = table + ".txt";
+    ofstream temp;
+    string line;
+    fstream f1;
+    f1.open(fileName);
+    temp.open("temp.txt");
+    int count = 0;
+    char *writable = new char[fileName.size() + 1];
+    copy(fileName.begin(), fileName.end(), writable);
+    writable[fileName.size()] = '\0'; // don't forget the terminating 0
+    int i = 0;
+    while (getline(f1, line))
+    {
+        if (count == indexes[i])
+        {
+            count++;
+            if (i < indexes.size())
+                i++;
+        }
+        else
+        {
+            temp << line << endl;
+            count++;
+        }
+    }
+
+    temp.close();
+    f1.close();
+    remove(writable);
+    rename("temp.txt", writable);
+    delete[] writable;
 }
 
 void SQL::update(vector<string> command)
