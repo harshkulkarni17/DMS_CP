@@ -1,3 +1,4 @@
 stud#int,varchar,
 phase#int,varchar,
-emp#int,varchar,int,
+studgrade#int,varchar,
+dept#int,varchar,

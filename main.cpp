@@ -38,7 +38,7 @@ public:
         while (getline(stringStream, line))
         {
             size_t prev = 0, pos;
-            while ((pos = line.find_first_of(" (),#;", prev)) != string ::npos)
+            while ((pos = line.find_first_of(" (),#;.", prev)) != string ::npos)
             {
                 if (pos > prev)
                     wordVector.push_back(line.substr(prev, pos - prev));
@@ -99,6 +99,7 @@ public:
     void dropTable(string tableName);
     void replaceFiles(string fileName, string tableName);
     void select(vector<string> command);
+    void joinTables(vector<string> command);
     void fetchAll(string table);
     void fetchRecordProjection(string table, vector<string> temp);
     void fetchAllbyCondition(string table, vector<string> whereClause);
@@ -107,17 +108,14 @@ public:
     void alterTable(vector<string> command);
     void alterFiles(vector<string> command, int index, int flag);
     void updateFiles(string fileName, int index, vector<string> append_str);
-<<<<<<< HEAD
-    void update(vector<string> command);
-    void helpTables();
-    void helpCommand(vector<string> command);
-    void quit();
-=======
     void deleteRecords(vector<string> command);
     void deleteAllbyCondition(string table, vector<string> whereClause);
     void deleteAll(string table);
     void deleteFromFile(string table, vector<int> indexes);
->>>>>>> 95bbc34cff705426bb05108e8211c5fad86bf70b
+    void update(vector<string> command);
+    void quit();
+    void helpCommand(vector<string> command);
+    void helpTables();
 
     void read_schema()
     {
@@ -166,7 +164,15 @@ void SQL ::execute(vector<string> command)
     else if (lower(command[0]) == "select")
     {
         cout << "select()\n";
-        select(command);
+        int joinIndex = getIndex(command, "join"); // means inner join query present
+        if (joinIndex != -1)
+        {
+            joinTables(command);
+        }
+        else
+        {
+            select(command);
+        }
     }
     else if (lower(command[0]) == "insert")
     {
@@ -186,6 +192,7 @@ void SQL ::execute(vector<string> command)
     else if (lower(command[0]) == "delete")
     {
         cout << "delete()";
+        deleteRecords(command);
     }
     else if (lower(command[0]) == "drop")
     {
@@ -1144,6 +1151,134 @@ void SQL::fetchAllbyCondition(string table, vector<string> whereClause)
     f1.close();
 }
 
+void SQL::joinTables(vector<string> command)
+{
+    // select * from table1 inner join table2 on table1.col operator table2.col
+    string table1 = command[getIndex(command, "from") + 1];
+    string table2 = command[getIndex(command, "join") + 1];
+
+    if (notin(lower(table1), tables) || notin(lower(table2), tables))
+    {
+        cout << "Error: Invalid Table Name" << endl;
+    }
+    else
+    {
+        vector<string> columns1 = getColumns(table1);
+        vector<string> columns2 = getColumns(table2);
+
+        string col1 = command[getIndex(command, "on") + 2];
+        string col2 = command[getIndex(command, "on") + 5];
+        string opr = command[getIndex(command, "on") + 3];
+
+        if (notin(lower(col1), columns1) || notin(lower(col2), columns2))
+        {
+            cout << "Error: Invalid Joining Condition" << endl;
+            return;
+        }
+
+        int index_col1 = getIndex(columns1, col1);
+        int index_col2 = getIndex(columns2, col2);
+
+        for (int i = 0; i < columns1.size(); i++) // print record from table1
+        {
+            cout << columns1[i] << "\t|\t";
+        }
+        for (int j = 0; j < columns2.size(); j++) // print record from table2
+        {
+            if (j != index_col2)
+                cout << columns2[j] << "\t|\t";
+        }
+        cout << endl;
+
+        fstream f1, f2;
+        f1.open(table1 + ".txt", ios::in);
+        f2.open(table2 + ".txt", ios::in);
+
+        string line1, line2;
+        while (getline(f1, line1))
+        {
+            vector<string> record1 = split(line1);
+            while (getline(f2, line2))
+            {
+                vector<string> record2 = split(line2);
+                if (opr == "=")
+                {
+                    if (record1[index_col1] == record2[index_col2])
+                    {
+                        for (int i = 0; i < record1.size(); i++) // print record from table1
+                        {
+                            cout << record1[i] << "\t|\t";
+                        }
+                        for (int j = 0; j < record2.size(); j++) // print record from table2
+                        {
+                            if (j != index_col2)
+                                cout << record2[j] << "\t|\t";
+                        }
+                        cout << endl;
+                    }
+                }
+                else if (opr == "<=")
+                {
+                    if (record1[index_col1] <= record2[index_col2])
+                    {
+                        for (int i = 0; i < record1.size(); i++) // print record from table1
+                        {
+                            cout << record1[i] << "\t|\t";
+                        }
+                        for (int j = 0; j < record2.size(); j++) // print record from table2
+                        {
+                            if (j != index_col2)
+                                cout << record2[j] << "\t|\t";
+                        }
+                        cout << endl;
+                    }
+                }
+                else if (opr == ">=")
+                {
+                    if (record1[index_col1] >= record2[index_col2])
+                    {
+                        for (int i = 0; i < record1.size(); i++) // print record from table1
+                        {
+                            cout << record1[i] << "\t|\t";
+                        }
+                        for (int j = 0; j < record2.size(); j++) // print record from table2
+                        {
+                            if (j != index_col2)
+                                cout << record2[j] << "\t|\t";
+                        }
+                        cout << endl;
+                    }
+                }
+                else if (opr == "!=" || opr == "<>")
+                {
+                    if (record1[index_col1] != record2[index_col2])
+                    {
+                        for (int i = 0; i < record1.size(); i++) // print record from table1
+                        {
+                            cout << record1[i] << "\t|\t";
+                        }
+                        for (int j = 0; j < record2.size(); j++) // print record from table2
+                        {
+                            if (j != index_col2)
+                                cout << record2[j] << "\t|\t";
+                        }
+                        cout << endl;
+                    }
+                }
+                else
+                {
+                    cout << "No matching operator" << endl;
+                }
+            }
+            f2.clear();
+            f2.seekg(0); // Start file reading f2 from 1st line
+        }
+
+        f1.close();
+        f2.close();
+    }
+}
+
 void SQL ::updateFiles(string fileName, int index, vector<string> append_str)
 {
     ofstream temp;
@@ -1527,7 +1662,7 @@ void SQL ::deleteRecords(vector<string> command)
         // delete from stud where name = 'PQRS';
         if (command.size() == 3)
         {
-                deleteAll(table);
+            deleteAll(table);
         }
         else
         {
@@ -1582,10 +1717,6 @@ void SQL ::deleteAllbyCondition(string table, vector<string> whereClause)
     int index;
     f1.open(table + ".txt");
     string temp;
-    for (int i = 0; i < columns.size(); i++)
-    {
-        cout << columns[i] << "\t|\t";
-    }
     cout << endl;
     int count = 0;
     while (getline(f1, temp))
@@ -1656,11 +1787,10 @@ void SQL ::deleteAllbyCondition(string table, vector<string> whereClause)
     }
     // for(auto i:indexes)
     // {
-    //     cout << "Indexes " << i << endl; 
+    //     cout << "Indexes " << i << endl;
     // }
     f1.close();
     deleteFromFile(table, indexes);
-
 }
 
 void SQL ::deleteAll(string table)
@@ -1827,7 +1957,7 @@ void SQL::update(vector<string> command)
                             }
                         }
                     }
-                    cout << records[i] << "\t|\t";
+                    // cout << records[i] << "\t|\t";
                     f2 << records[i] << "#";
                 }
                 else
@@ -1841,11 +1971,11 @@ void SQL::update(vector<string> command)
                             count++;
                         }
                     }
-                    cout << records[i] << "\t|\t";
+                    // cout << records[i] << "\t|\t";
                     f2 << records[i] << "#";
                 }
             }
-            cout << endl;
+            // cout << endl;
             f2 << endl;
         }
         cout << count / colIndexes.size() << " rows updated" << endl;
@@ -1946,28 +2076,29 @@ void SQL::quit()
 int main()
 {
     SQL sql;
-    while(true)
+    while (true)
     {
         string s;
         cout << "\n\nEnter SQL command - (Enter \'quit\' for exiting) " << endl;
         getline(cin, s);
         sql.setQuery(s);
     }
+    // select * from stud inner join studgrade on stud.grno = studgrade.grno;
     //"create table grade (id int primary_key, grade varchar(2)";
     //"quit;";
-    // "help tables;"
-    // "HELP select;";
+    //  "help tables;"
+    //  "HELP select;";
     //"update stud set grno = 15155 where name = 'ben' ;"
     //"select * from stud where name < 'XYZ';"
     //"alter table phase drop column ttl";
     //"alter table phase add ttl int";
     //"drop table stud";
-    // "select * from stud ;"
-    // "insert into demo values (345135699999,'abcdef');";
+    //  "select * from stud ;"
+    //  "insert into demo values (345135699999,'abcdef');";
     //"insert into stud values (11817, 'john');";
     //"create table stud(grno int primary_key, name varchar(20));";
     //"create table phase(phaseno int(3,2) primary_key, cardname varchar(20));"
-    // cout << "Enter the SQL command :- ";
-    // getline(cin, s);
+    //  cout << "Enter the SQL command :- ";
+    //  getline(cin, s);
     return 0;
 }

@@ -1,3 +1,4 @@
 stud#grno#int#name#varchar
 phase#phaseno#int#cardname#varchar
-emp#id#int#name#varchar#sal#int
+studgrade#grno#int#grade#varchar
+dept#dno#int#dname#varchar

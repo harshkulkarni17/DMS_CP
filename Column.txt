@@ -1,3 +1,4 @@
 stud#grno,name,
 phase#phaseno,cardname,
-emp#id,name,sal,
+studgrade#grno,grade,
+dept#dno,dname,
